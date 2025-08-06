@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Center Operations Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #ffffff;
+            color: #0f172a;
+            line-height: 1.6;
+        }
+
+        .dashboard {
+            min-height: 100vh;
+            padding: 24px;
+            background: #ffffff;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #475569;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            border: 1px solid #10b981;
+            border-radius: 16px;
+            background: #ecfdf5;
+            color: #059669;
+            font-size: 14px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #3b82f6;
+        }
+
+        .kpi-card.success { border-left: 4px solid #10b981; }
+        .kpi-card.warning { border-left: 4px solid #f59e0b; }
+        .kpi-card.critical { border-left: 4px solid #ef4444; }
+
+        .kpi-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .kpi-title {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .kpi-unit {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .bottom-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+        }
+
+        .section {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .section:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1e293b;
+        }
+
+        .chart-container {
+            margin: 16px 0;
+            height: 200px;
+            position: relative;
+        }
+
+        .chart-small {
+            height: 150px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .status-good { color: #10b981; }
+        .status-warning { color: #f59e0b; }
+        .status-critical { color: #ef4444; }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            margin: 16px 0;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .temp-normal { background: #10b981; }
+        .temp-warm { background: #f59e0b; }
+        .temp-hot { background: #ef4444; }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .maintenance-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .icon-large {
+            width: 20px;
+            height: 20px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>
+                    <i data-lucide="database" class="icon-large pulse"></i>
+                    Data Center Operations Dashboard
+                </h1>
+                <p style="color: #64748b; margin-top: 4px;">
+                    Real-time monitoring and control • Last updated: <span id="lastUpdate"></span>
+                </p>
+            </div>
+            
+            <div class="header-actions">
+                <div class="badge float">
+                    <i data-lucide="activity" class="icon pulse"></i>
+                    Live Monitoring
+                </div>
+                <button class="btn" onclick="refreshData()">
+                    <i data-lucide="refresh-cw" class="icon"></i>
+                    Refresh
+                </button>
+                <button class="btn" onclick="exportData()">
+                    <i data-lucide="download" class="icon"></i>
+                    Export
+                </button>
+                <button class="btn">
+                    <i data-lucide="settings" class="icon"></i>
+                    Settings
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Strip -->
+        <div class="kpi-grid">
+            <div class="kpi-card success" onclick="setActiveSection('sustainability')">
+                <div class="kpi-header">
+                    <span class="kpi-title">PUE Efficiency</span>
+                    <i data-lucide="trending-up" class="icon"></i>
+                </div>
+                <div class="kpi-value">1.42</div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('power')">
+                <div class="kpi-header">
+                    <span class="kpi-title">Total Power</span>
+                    <i data-lucide="zap" class="icon"></i>
+                </div>
+                <div class="kpi-value">3200 <span class="kpi-unit">kW</span></div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('cooling')">
+                <div class="kpi-header">
+                    <span class="kpi-title">Avg Temperature</span>
+                    <i data-lucide="thermometer" class="icon"></i>
+                </div>
+                <div class="kpi-value">24.8 <span class="kpi-unit">°C</span></div>
+            </div>
+            
+            <div class="kpi-card warning" onclick="setActiveSection('alarms')">
+                <div class="kpi-header">
+                    <span class="kpi-title">Active Alarms</span>
+                    <i data-lucide="shield" class="icon"></i>
+                </div>
+                <div class="kpi-value">3</div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('assets')">
+                <div class="kpi-header">
+                    <span class="kpi-title">White Space</span>
+                    <i data-lucide="server" class="icon"></i>
+                </div>
+                <div class="kpi-value">72 <span class="kpi-unit">%</span></div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('power')">
+                <div class="kpi-header">
+                    <span class="kpi-title">UPS Load</span>
+                    <i data-lucide="battery" class="icon"></i>
+                </div>
+                <div class="kpi-value">78 <span class="kpi-unit">%</span></div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('cooling')">
+                <div class="kpi-header">
+                    <span class="kpi-title">Chiller Efficiency</span>
+                    <i data-lucide="trending-up" class="icon"></i>
+                </div>
+                <div class="kpi-value">0.68 <span class="kpi-unit">kW/TR</span></div>
+            </div>
+            
+            <div class="kpi-card success" onclick="setActiveSection('maintenance')">
+                <div class="kpi-header">
+                    <span class="kpi-title">MTTR</span>
+                    <i data-lucide="clock" class="icon"></i>
+                </div>
+                <div class="kpi-value">4.2 <span class="kpi-unit">hours</span></div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Power Systems -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="zap" class="icon" style="color: #3b82f6;"></i>
+                    Power Systems
+                </h2>
+                
+                <div class="metric">
+                    <span class="metric-label">Power Source Split</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="powerSourceChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">UPS Load per Block</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="upsLoadChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">DG Fuel Level</span>
+                    <span class="metric-value status-good">85%</span>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Electrical Alerts</span>
+                    <span class="metric-value status-warning">2 Active</span>
+                </div>
+            </div>
+
+            <!-- Cooling & Environmental -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="thermometer" class="icon" style="color: #06b6d4;"></i>
+                    Cooling & Environment
+                </h2>
+                
+                <div class="metric">
+                    <span class="metric-label">Chiller Performance</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="chillerChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Temperature Heat Map - Data Center Floor</span>
+                </div>
+                <div class="heatmap-grid">
+                    <div class="heatmap-cell temp-normal">23°</div>
+                    <div class="heatmap-cell temp-normal">24°</div>
+                    <div class="heatmap-cell temp-warm">26°</div>
+                    <div class="heatmap-cell temp-normal">23°</div>
+                    <div class="heatmap-cell temp-normal">24°</div>
+                    <div class="heatmap-cell temp-hot">28°</div>
+                    <div class="heatmap-cell temp-normal">23°</div>
+                    <div class="heatmap-cell temp-normal">24°</div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color temp-normal"></div>
+                        <span>Normal (20-25°C)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color temp-warm"></div>
+                        <span>Warm (26-27°C)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color temp-hot"></div>
+                        <span>Hot (28°C+)</span>
+                    </div>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Leak/Smoke Alerts</span>
+                    <span class="metric-value status-good">None</span>
+                </div>
+            </div>
+
+            <!-- Asset & Capacity -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="server" class="icon" style="color: #8b5cf6;"></i>
+                    Asset & Capacity
+                </h2>
+                
+                <div class="metric">
+                    <span class="metric-label">Rack Power Usage</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="rackPowerChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Server Count & Utilization</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="serverUtilChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Rack Space Utilization</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="rackSpaceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Content -->
+        <div class="bottom-content">
+            <!-- Alarms & Incidents -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="shield" class="icon" style="color: #ef4444;"></i>
+                    Alarms & Incidents
+                </h2>
+                
+                <div class="chart-container chart-small">
+                    <canvas id="alarmsChart"></canvas>
+                </div>
+                
+                <div class="alert-item">
+                    <i data-lucide="alert-triangle" class="icon"></i>
+                    <div>
+                        <div style="font-weight: 600;">High Temperature - Rack A12</div>
+                        <div style="font-size: 12px; color: #64748b;">2 min ago</div>
+                    </div>
+                </div>
+                
+                <div class="alert-item">
+                    <i data-lucide="zap" class="icon"></i>
+                    <div>
+                        <div style="font-weight: 600;">Power Fluctuation - UPS B</div>
+                        <div style="font-size: 12px; color: #64748b;">15 min ago</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sustainability -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="trending-up" class="icon" style="color: #10b981;"></i>
+                    Sustainability
+                </h2>
+                
+                <div class="metric">
+                    <span class="metric-label">Renewable Energy Use</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="renewableChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Carbon Emissions Trend</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="carbonChart"></canvas>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Water Usage for Cooling</span>
+                    <span class="metric-value">1,240 L/hr</span>
+                </div>
+            </div>
+
+            <!-- Operations & Maintenance -->
+            <div class="section">
+                <h2 class="section-title">
+                    <i data-lucide="settings" class="icon" style="color: #f59e0b;"></i>
+                    Operations & Maintenance
+                </h2>
+                
+                <div class="metric">
+                    <span class="metric-label">Spare Parts Inventory</span>
+                </div>
+                <div class="chart-container chart-small">
+                    <canvas id="sparePartsChart"></canvas>
+                </div>
+                
+                <div class="maintenance-item">
+                    <div>
+                        <div style="font-weight: 600;">Scheduled - UPS Maintenance</div>
+                        <div style="font-size: 12px; color: #64748b;">Tomorrow 2:00 AM</div>
+                    </div>
+                    <span class="status-warning">Pending</span>
+                </div>
+                
+                <div class="maintenance-item">
+                    <div>
+                        <div style="font-weight: 600;">Completed - Chiller Service</div>
+                        <div style="font-size: 12px; color: #64748b;">Yesterday</div>
+                    </div>
+                    <span class="status-good">Done</span>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">Manpower On Duty</span>
+                    <span class="metric-value">8/10</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Update timestamp
+        function updateTimestamp() {
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+        updateTimestamp();
+        setInterval(updateTimestamp, 1000);
+
+        // Chart configurations
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 11 }
+                    }
+                }
+            }
+        };
+
+        // Power Source Chart (Pie)
+        new Chart(document.getElementById('powerSourceChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Grid', 'Solar', 'DG Backup'],
+                datasets: [{
+                    data: [70, 20, 10],
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
+                }]
+            },
+            options: chartConfig
+        });
+
+        // UPS Load Chart (Bar)
+        new Chart(document.getElementById('upsLoadChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Block A', 'Block B', 'Block C', 'Block D'],
+                datasets: [{
+                    label: 'Load %',
+                    data: [78, 82, 75, 71],
+                    backgroundColor: '#3b82f6'
+                }]
+            },
+            options: {
+                ...chartConfig,
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // Chiller Performance Chart (Line)
+        new Chart(document.getElementById('chillerChart'), {
+            type: 'line',
+            data: {
+                labels: ['12:00', '13:00', '14:00', '15:00', '16:00'],
+                datasets: [{
+                    label: 'Load %',
+                    data: [65, 70, 68, 72, 71],
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Rack Power Chart (Bar)
+        new Chart(document.getElementById('rackPowerChart'), {
+            type: 'bar',
+            data: {
+                labels: ['R1-10', 'R11-20', 'R21-30', 'R31-40'],
+                datasets: [{
+                    label: 'Power (kW)',
+                    data: [85, 92, 78, 88],
+                    backgroundColor: '#8b5cf6'
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Server Utilization Chart (Pie)
+        new Chart(document.getElementById('serverUtilChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Active', 'Idle', 'Maintenance'],
+                datasets: [{
+                    data: [280, 45, 15],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Rack Space Chart (Stacked Bar)
+        new Chart(document.getElementById('rackSpaceChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Zone A', 'Zone B', 'Zone C', 'Zone D'],
+                datasets: [
+                    {
+                        label: 'Used Racks',
+                        data: [28, 32, 25, 30],
+                        backgroundColor: '#8b5cf6'
+                    },
+                    {
+                        label: 'Available Space',
+                        data: [12, 8, 15, 10],
+                        backgroundColor: '#e2e8f0'
+                    }
+                ]
+            },
+            options: {
+                ...chartConfig,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true }
+                }
+            }
+        });
+
+        // Alarms Chart (Bar)
+        new Chart(document.getElementById('alarmsChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Critical', 'Major', 'Minor'],
+                datasets: [{
+                    label: 'Count',
+                    data: [1, 2, 4],
+                    backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6']
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Renewable Energy Chart (Doughnut)
+        new Chart(document.getElementById('renewableChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Solar', 'Grid (Non-renewable)'],
+                datasets: [{
+                    data: [25, 75],
+                    backgroundColor: ['#10b981', '#64748b']
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Carbon Emissions Chart (Line)
+        new Chart(document.getElementById('carbonChart'), {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                datasets: [{
+                    label: 'CO2 (tons)',
+                    data: [125, 118, 122, 115, 112],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: chartConfig
+        });
+
+        // Spare Parts Chart (Bar)
+        new Chart(document.getElementById('sparePartsChart'), {
+            type: 'bar',
+            data: {
+                labels: ['UPS', 'Servers', 'Cooling', 'Network'],
+                datasets: [{
+                    label: 'Stock Level %',
+                    data: [85, 92, 78, 95],
+                    backgroundColor: ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981']
+                }]
+            },
+            options: {
+                ...chartConfig,
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // Functions
+        function refreshData() {
+            console.log('Refreshing data...');
+            updateTimestamp();
+        }
+
+        function exportData() {
+            console.log('Exporting data...');
+            alert('Export functionality would download dashboard data as PDF/Excel');
+        }
+
+        function setActiveSection(section) {
+            console.log('Navigating to section:', section);
+        }
+
+        // Simulate real-time updates
+        setInterval(() => {
+            // Randomly update some KPI values
+            const kpiCards = document.querySelectorAll('.kpi-value');
+            // Add subtle animations or updates here if needed
+        }, 5000);
+    </script>
+</body>
+</html>
